@@ -10,7 +10,7 @@ func TestKeyGeneration(t *testing.T) {
 
 	keypair := GenerateNewKeypair()
 
-	if len(keypair.Public) > 80 {
+	if len(keypair.Public) > NETWORK_KEY_SIZE {
 		t.Error("Error generating key")
 	}
 }

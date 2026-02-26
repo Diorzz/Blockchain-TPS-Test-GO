@@ -53,10 +53,9 @@ func (t *Transaction) Sign(keypair *Keypair) []byte {
 func (t *Transaction) VerifyTransaction(pow []byte) bool {
 
 	headerHash := t.Hash()
-	//payloadHash := helpers.SHA256(t.Payload)
+	payloadHash := helpers.SHA256(t.Payload)
 
-	//return reflect.DeepEqual(payloadHash, t.Header.PayloadHash) && CheckProofOfWork(pow, headerHash) && SignatureVerify(t.Header.From, t.Signature, headerHash)
-	return SignatureVerify(t.Header.From, t.Signature, headerHash)
+	return reflect.DeepEqual(payloadHash, t.Header.PayloadHash) && CheckProofOfWork(pow, headerHash) && SignatureVerify(t.Header.From, t.Signature, headerHash)
 }
 
 func (t *Transaction) GenerateNonce(prefix []byte) uint32 {
@@ -155,7 +154,7 @@ func (slice TransactionSlice) Exists(tr Transaction) bool {
 
 func (slice TransactionSlice) AddTransaction(t Transaction) TransactionSlice {
 
-	// Inserted sorted by timestamp
+	// Inserted sorted by timestamp (or just append if sorting is disabled)
 	/*
 		for i, tr := range slice {
 			if tr.Header.Timestamp >= t.Header.Timestamp {
@@ -163,7 +162,7 @@ func (slice TransactionSlice) AddTransaction(t Transaction) TransactionSlice {
 			}
 		}
 	*/
-	return slice
+	return append(slice, t)
 }
 
 func (slice *TransactionSlice) MarshalBinary() ([]byte, error) {

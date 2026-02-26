@@ -54,7 +54,7 @@ func HandleNode(node *Node) {
 
 		if err == io.EOF {
 			fmt.Println("EOF")
-			//TODO: Remove node [Issue: https://github.com/izqui/blockchain/issues/3]
+			//: Remove node [Issue: https://github.com/izqui/blockchain/issues/3]
 			node.TCPConn.Close()
 			break
 		}

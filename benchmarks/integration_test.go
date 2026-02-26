@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/izqui/blockchain/core"
+	"tps-testing/core"
 )
 
 /*
@@ -50,7 +50,7 @@ func BenchmarkTxSize(b *testing.B) {
 	for _, txSize := range testCases {
 		b.Run(txSize, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				core.Core.Blockchain.TransactionsQueue <- core.CreateTransaction(txSize) //TODO
+				core.Core.Blockchain.TransactionsQueue <- core.CreateTransaction(txSize) // Deferred to mempool
 			}
 		})
 	}

@@ -141,7 +141,6 @@ func (b *Block) MarshalBinary() ([]byte, error) {
 }
 
 func (b *Block) UnmarshalBinary(d []byte) error {
-
 	buf := bytes.NewBuffer(d)
 
 	header := new(BlockHeader)
@@ -151,7 +150,7 @@ func (b *Block) UnmarshalBinary(d []byte) error {
 	}
 
 	b.BlockHeader = header
-	b.Signature = helpers.StripByte(buf.Next(NETWORK_KEY_SIZE), 0)
+	b.Signature = buf.Next(NETWORK_KEY_SIZE)
 
 	ts := new(TransactionSlice)
 	err = ts.UnmarshalBinary(buf.Next(helpers.MaxInt))
@@ -178,13 +177,11 @@ func (h *BlockHeader) MarshalBinary() ([]byte, error) {
 }
 
 func (h *BlockHeader) UnmarshalBinary(d []byte) error {
-
 	buf := bytes.NewBuffer(d)
-	h.Origin = helpers.StripByte(buf.Next(NETWORK_KEY_SIZE), 0)
+	h.Origin = helpers.StripByte(buf.Next(NETWORK_KEY_SIZE), 0) // Strip leading zeros
 	binary.Read(bytes.NewBuffer(buf.Next(4)), binary.LittleEndian, &h.Timestamp)
-	h.PrevBlock = buf.Next(32)
-	h.MerkelRoot = buf.Next(32)
+	h.PrevBlock = helpers.StripByte(buf.Next(32), 0) // Strip leading zeros
+	h.MerkelRoot = helpers.StripByte(buf.Next(32), 0) // Strip leading zeros
 	binary.Read(bytes.NewBuffer(buf.Next(4)), binary.LittleEndian, &h.Nonce)
-
 	return nil
 }

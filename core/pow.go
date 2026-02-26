@@ -13,10 +13,13 @@ var (
 )
 
 func CheckProofOfWork(prefix []byte, hash []byte) bool {
-	/*
-		if len(prefix) > 0 {
-			return reflect.DeepEqual(prefix, hash[:len(prefix)])
+	if len(prefix) > 0 {
+		for i := range prefix {
+			if prefix[i] != hash[i] {
+				return false
+			}
 		}
-	*/
+		return true
+	}
 	return true
 }

@@ -6,13 +6,15 @@ import (
 	"fmt"
 	//_ "net/http/pprof"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"tp/blockchain/core"
+	"tps-testing/core"
 )
 
 //var address = flag.String("ip", fmt.Sprintf("%s:%s", core.GetIpAddress()[0], core.BLOCKCHAIN_PORT), "")
-var address = flag.String("ip", fmt.Sprintf("%s:%s", "192.168.1.2", core.BLOCKCHAIN_PORT), "")
+var address = flag.String("ip", fmt.Sprintf("%s:%s", "127.0.0.1", core.BLOCKCHAIN_PORT), "")
 
 
 func init() {
@@ -43,6 +45,15 @@ func main() {
 		}
 	}()
 	//http.ListenAndServe("0.0.0.0:6060", nil)
+	// Setup signal handler to dump report on exit
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sig
+		fmt.Println("Received interrupt; dumping TPS report and exiting...")
+		core.DumpReport()
+		os.Exit(0)
+	}()
 	for {
 		<-ReadStdin()
 	}

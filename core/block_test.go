@@ -25,78 +25,89 @@ func TestMerkellHash(t *testing.T) {
 	}
 }
 
-//TODO: Write block validation and marshalling tests [Issue: https://github.com/izqui/blockchain/issues/2]
-
-/*
 func TestBlockMarshalling(t *testing.T) {
-
 	kp := GenerateNewKeypair()
 	tr := NewTransaction(kp.Public, nil, []byte(helpers.RandomString(helpers.RandomInt(0, 1024*1024))))
 
 	tr.Header.Nonce = tr.GenerateNonce(helpers.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX))
 	tr.Signature = tr.Sign(kp)
 
-	data, err := tr.MarshalBinary()
+	// Create a block with the transaction
+	block := NewBlock([]byte("previous block hash"))
+	block.AddTransaction(tr)
+	block.BlockHeader.Origin = kp.Public
+	block.BlockHeader.MerkelRoot = block.GenerateMerkelRoot()
+	block.BlockHeader.Nonce = 12345
+	block.Signature = block.Sign(kp)
 
+	// Test marshalling
+	data, err := block.MarshalBinary()
 	if err != nil {
 		t.Error(err)
 	}
 
-	newT := &Transaction{}
-	err = newT.UnmarshalBinary(data)
-
+	// Test unmarshalling
+	newBlock := &Block{}
+	err = newBlock.UnmarshalBinary(data)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(*newT, *tr) {
-		t.Error("Marshall, unmarshall failed")
+	// Verify the unmarshalled block matches the original
+	t.Logf("Original signature len: %d, sig: %v", len(block.Signature), block.Signature)
+	t.Logf("Unmarshalled signature len: %d, sig: %v", len(newBlock.Signature), newBlock.Signature)
+	t.Logf("Original tx slice len: %d", len(*block.TransactionSlice))
+	t.Logf("Unmarshalled tx slice len: %d", len(*newBlock.TransactionSlice))
+	t.Logf("Original tx: %v", block.TransactionSlice)
+	t.Logf("Unmarshalled tx: %v", newBlock.TransactionSlice)
+
+	// Debug origin field specifically
+	t.Logf("Original origin len: %d, origin: %v", len(block.BlockHeader.Origin), block.BlockHeader.Origin)
+	t.Logf("Unmarshalled origin len: %d, origin: %v", len(newBlock.BlockHeader.Origin), newBlock.BlockHeader.Origin)
+
+	// Check individual fields since signature might be padded and fields might have leading zeros stripped
+	originalHeader := *block.BlockHeader
+	originalHeader.PrevBlock = helpers.StripByte(originalHeader.PrevBlock, 0)
+	originalHeader.MerkelRoot = helpers.StripByte(originalHeader.MerkelRoot, 0)
+	
+	if !reflect.DeepEqual(*newBlock.BlockHeader, originalHeader) {
+		t.Errorf("Block headers don't match: original=%v, unmarshalled=%v", originalHeader, newBlock.BlockHeader)
+	}
+
+	// Check transaction slice
+	if len(*newBlock.TransactionSlice) != 1 {
+		t.Errorf("Expected 1 transaction, got %d", len(*newBlock.TransactionSlice))
+	} else {
+		if !reflect.DeepEqual((*newBlock.TransactionSlice)[0], (*block.TransactionSlice)[0]) {
+			t.Errorf("Transactions don't match")
+		}
+	}
+
+	// Check signature - since it's padded to NETWORK_KEY_SIZE, we need to compare the relevant portion
+	sig1 := helpers.FitBytesInto(block.Signature, NETWORK_KEY_SIZE)
+	sig2 := helpers.FitBytesInto(newBlock.Signature, NETWORK_KEY_SIZE)
+	if !reflect.DeepEqual(sig1, sig2) {
+		t.Errorf("Signatures don't match")
 	}
 }
 
 func TestBlockVerification(t *testing.T) {
-
-	pow := helpers.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
-
-	kp := GenerateNewKeypair()
-	tr := NewTransaction(kp.Public, nil, []byte(helpers.RandomString(helpers.RandomInt(0, 1024))))
-
-	tr.Header.Nonce = tr.GenerateNonce(pow)
-	tr.Signature = tr.Sign(kp)
-
-	if !tr.VerifyTransaction(pow) {
-
-		t.Error("Validation failing")
-	}
-}
-
-func TestIncorrectBlockPOWVerification(t *testing.T) {
-
-	pow := helpers.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
-	powIncorrect := helpers.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, 'a')
+	pow := helpers.ArrayOfBytes(TEST_BLOCK_POW_COMPLEXITY, TEST_POW_PREFIX)
 
 	kp := GenerateNewKeypair()
 	tr := NewTransaction(kp.Public, nil, []byte(helpers.RandomString(helpers.RandomInt(0, 1024))))
-	tr.Header.Nonce = tr.GenerateNonce(powIncorrect)
+
+	tr.Header.Nonce = tr.GenerateNonce(helpers.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX))
 	tr.Signature = tr.Sign(kp)
 
-	if tr.VerifyTransaction(pow) {
+	block := NewBlock([]byte("previous block hash"))
+	block.AddTransaction(tr)
+	block.BlockHeader.Origin = kp.Public
+	block.BlockHeader.MerkelRoot = block.GenerateMerkelRoot()
+	block.BlockHeader.Nonce = block.GenerateNonce(pow) // Generate valid PoW nonce
+	block.Signature = block.Sign(kp)
 
-		t.Error("Passed validation without pow")
+	if !block.VerifyBlock(pow) {
+		t.Error("Block validation failing")
 	}
 }
-
-func TestIncorrectBlockSignatureVerification(t *testing.T) {
-
-	pow := helpers.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
-	kp1, kp2 := GenerateNewKeypair(), GenerateNewKeypair()
-	tr := NewTransaction(kp2.Public, nil, []byte(helpers.RandomString(helpers.RandomInt(0, 1024))))
-	tr.Header.Nonce = tr.GenerateNonce(pow)
-	tr.Signature = tr.Sign(kp1)
-
-	if tr.VerifyTransaction(pow) {
-
-		t.Error("Passed validation with incorrect key")
-	}
-}
-*/

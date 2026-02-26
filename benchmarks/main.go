@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/izqui/blockchain/core"
+	"tps-testing/core"
 )
 
 func main() {

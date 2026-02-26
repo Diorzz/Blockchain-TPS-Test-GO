@@ -1,0 +1,6 @@
+--- TPS Reporter Started at 2026-02-19 21:18:06.425551847 +0000 UTC m=+0.012532188 ---
+[2026-02-19T21:18:21Z] Block 1: tx=10000, per_block_tps=0.00, total_tx=10000, avg_tps=11086474501.11
+[2026-02-19T21:18:27Z] Block 2: tx=10000, per_block_tps=1580.65, total_tx=20000, avg_tps=7204610951.01
+[2026-02-19T21:18:33Z] Block 3: tx=10000, per_block_tps=1649.99, total_tx=30000, avg_tps=6868131868.13
+[2026-02-19T21:18:39Z] Block 4: tx=10000, per_block_tps=1654.28, total_tx=40000, avg_tps=6257822277.85
+--- TPS Reporter Started at 2026-02-19 21:18:45.870666377 +0000 UTC m=+0.012560200 ---

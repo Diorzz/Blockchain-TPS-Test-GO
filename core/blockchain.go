@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sync"
 	"time"
+	"os"
 )
 
 type TransactionsQueue chan *Transaction
@@ -22,6 +23,17 @@ type Blockchain struct {
 var beginTime map[string]time.Time
 var validTxQueue chan *Transaction
 var Wg sync.WaitGroup
+
+// Reporter holds running metrics accessible across the package
+var Reporter = struct {
+	TotalBlocks int
+	TotalTxs    int
+	TotalTime   float64
+}{
+	TotalBlocks: 0,
+	TotalTxs:    0,
+	TotalTime:   0,
+}
 
 func init() {
 	beginTime = make(map[string]time.Time)
@@ -135,13 +147,12 @@ func (bl *Blockchain) Run() {
 
 		case tr := <-validTxQueue:
 
-			//time.Sleep(time.Millisecond * 10)
-			//mes := NewMessage(MESSAGE_SEND_TRANSACTION)
-			//mes.Data, _ = tr.MarshalBinary()
-			//
-			////time.Sleep(300 * time.Millisecond)
-			//beginTime[hex.EncodeToString(tr.Hash())] = time.Now()
-			//Core.Network.BroadcastQueue <- *mes
+			// Broadcast transaction to peers and record timing
+			mes := NewMessage(MESSAGE_SEND_TRANSACTION)
+			mes.Data, _ = tr.MarshalBinary()
+			beginTime[hex.EncodeToString(tr.Hash())] = time.Now()
+			Core.Network.BroadcastQueue <- *mes
+
 			cnt++
 			CurrentBlock.AddTransaction(tr)
 			if cnt >= BLOCK_TX_NUM {
@@ -218,7 +229,7 @@ func DiffTransactionSlices(a, b TransactionSlice) (diff TransactionSlice) {
 			}
 		}
 		if !found {
-			//diff = append(diff, t)
+			diff = append(diff, t)
 		}
 	}
 
@@ -230,6 +241,16 @@ func (bl *Blockchain) GenerateBlocks() chan Block {
 
 	interrupt := make(chan Block)
 
+	// Metrics
+	var lastBlockTime time.Time
+
+	// Ensure report file exists
+	go func() {
+		f, _ := os.OpenFile("tps_report.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		defer f.Close()
+		f.WriteString("--- TPS Reporter Started at " + time.Now().String() + " ---\n")
+	}()
+
 	go func() {
 		for {
 			block := <-interrupt
@@ -239,72 +260,79 @@ func (bl *Blockchain) GenerateBlocks() chan Block {
 				continue
 
 			}
-			//loop:
-			//fmt.Println("Starting Proof of Work...")
-			/*
-				block.BlockHeader.MerkelRoot = block.GenerateMerkelRoot()
-				block.BlockHeader.Nonce = 0
-			*/
+
 			block.BlockHeader.Timestamp = uint32(time.Now().Unix())
-			//for true {
-
-			//sleepTime := time.Nanosecond
-			//if block.TransactionSlice.Len() > 0 {
-
-			//if CheckProofOfWork(BLOCK_POW, block.Hash()) {
-
-			//block.Signature = block.Sign(Core.Keypair)
 			blockHash := hex.EncodeToString(block.Hash())
 			fmt.Printf("Generate a Block [%s]\n", blockHash)
 			beginTime[blockHash] = time.Now()
 
-			print("Send a block contains " , block.TransactionSlice.Len()," tx\n")
-			mes := NewMessage(MESSAGE_SEND_BLOCK)
-			mes.Data, _ = block.MarshalBinary()
-
-			//for _, val := range *(block.TransactionSlice){
-			//	print("Marshal Verify tx: ", val.VerifyTransaction(TRANSACTION_POW))
-			//}
-
-			//b := new(Block)
-			//err := b.UnmarshalBinary(mes.Data)
-			//if err != nil {
-			//	break
-			//}
-
-			//print("Un send a block :", b.TransactionSlice.Len(), "\n")
-			//
-			//for _, val := range *(b.TransactionSlice){
-			//	print("Unmarshal Verify tx: ", val.VerifyTransaction(TRANSACTION_POW))
-			//}
-
-			Core.Network.BroadcastQueue <- *mes
-
-			time.Sleep(time.Second * BLOCK_BROADCAST_INTERVAL)
-			//bl.BlocksQueue <- block
-			//sleepTime = time.Hour * 24
-
-			//}
-			/* else {
-
-					block.BlockHeader.Nonce += 1
-				}
-
+			// Per-block TPS calculation
+			now := time.Now()
+			var delta float64
+			if !lastBlockTime.IsZero() {
+				delta = now.Sub(lastBlockTime).Seconds()
 			} else {
-				sleepTime = time.Hour * 24
-				fmt.Println("No trans sleep")
+				delta = 0
 			}
+			lastBlockTime = now
 
-			select {
-			case block = <-interrupt:
-				goto loop
-			case <-helpers.Timeout(sleepTime):
-				continue
-			}
-			*/
-			//}
-		}
+			n := block.TransactionSlice.Len()
+	Reporter.TotalBlocks += 1
+	Reporter.TotalTxs += n
+
+	var perBlockTPS float64
+	if delta > 0 {
+		perBlockTPS = float64(n) / delta
+	} else {
+		perBlockTPS = 0
+	}
+
+	// Aggregate
+	used := 0.0
+	if bt, ok := beginTime[blockHash]; ok {
+		used = time.Now().Sub(bt).Seconds()
+		Reporter.TotalTime += used
+	}
+
+	avgTPS := 0.0
+	if Reporter.TotalTime > 0 {
+		avgTPS = float64(Reporter.TotalTxs) / Reporter.TotalTime
+	}
+
+	// Log to stdout and file
+	logLine := fmt.Sprintf("[%s] Block %d: tx=%d, per_block_tps=%.2f, total_tx=%d, avg_tps=%.2f\n", now.Format(time.RFC3339), Reporter.TotalBlocks, n, perBlockTPS, Reporter.TotalTxs, avgTPS)
+	fmt.Print(logLine)
+	f, err := os.OpenFile("tps_report.log", os.O_APPEND|os.O_WRONLY, 0644)
+	if err == nil {
+		f.WriteString(logLine)
+		f.Close()
+	}
+
+	print("Send a block contains " , n, " tx\n")
+	mes := NewMessage(MESSAGE_SEND_BLOCK)
+	mes.Data, _ = block.MarshalBinary()
+
+	Core.Network.BroadcastQueue <- *mes
+
+	time.Sleep(time.Second * BLOCK_BROADCAST_INTERVAL)
+	}
 	}()
 
 	return interrupt
+}
+
+// DumpReport writes current reporter summary to disk
+func DumpReport() error {
+	f, err := os.OpenFile("tps_report.log", os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	avg := 0.0
+	if Reporter.TotalTime > 0 {
+		avg = float64(Reporter.TotalTxs) / Reporter.TotalTime
+	}
+	line := fmt.Sprintf("--- Dump at %s: total_blocks=%d total_txs=%d total_time=%.3f avg_tps=%.2f ---\n", time.Now().Format(time.RFC3339), Reporter.TotalBlocks, Reporter.TotalTxs, Reporter.TotalTime, avg)
+	_, err = f.WriteString(line)
+	return err
 }

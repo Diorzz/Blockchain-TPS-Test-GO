@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/izqui/blockchain/core"
+	"tps-testing/core"
 )
 
 func TestCreateTransactionTest(t *testing.T) {
